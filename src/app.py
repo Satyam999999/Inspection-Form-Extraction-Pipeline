@@ -12,6 +12,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -19,6 +20,8 @@ from pydantic import BaseModel, Field
 
 from src.pipeline import run_pipeline
 from src.schema import ExtractionResponse
+
+load_dotenv()
 
 # ── logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
