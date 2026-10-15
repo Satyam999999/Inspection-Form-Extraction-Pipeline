@@ -46,10 +46,14 @@ from src.image_utils import prepare_images
 from src.prompts import build_system_prompt, build_retry_prompt, USER_PROMPT_SINGLE, USER_PROMPT_MULTI
 from src.schema import ExtractionResponse, InspectionForm
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES: int = int(os.environ.get("MAX_RETRIES", "3"))
-GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 
 
 # ──────────────────────────────────────────────
@@ -94,11 +98,13 @@ def _pil_to_base64(img: Any) -> str:
 # ──────────────────────────────────────────────
 
 def _build_llm() -> ChatGoogleGenerativeAI:
+    load_dotenv(override=True)
     api_key = os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:
         raise EnvironmentError("GOOGLE_API_KEY environment variable is not set.")
+    model_name = os.environ.get("GEMINI_MODEL", GEMINI_MODEL)
     return ChatGoogleGenerativeAI(
-        model=GEMINI_MODEL,
+        model=model_name,
         google_api_key=api_key,
         temperature=0,
         max_retries=2,          # LangChain-level network retries
@@ -171,14 +177,33 @@ def extract_node(state: PipelineState) -> PipelineState:
         messages = _build_messages_first(state["images"])
 
     response = llm.invoke(messages)
-    raw = response.content.strip()
+    if isinstance(response.content, str):
+        raw = response.content
+    elif isinstance(response.content, list):
+        text_parts = []
+        for part in response.content:
+            if isinstance(part, str):
+                text_parts.append(part)
+            elif isinstance(part, dict) and "text" in part:
+                text_parts.append(part["text"])
+            elif hasattr(part, "text"):
+                text_parts.append(getattr(part, "text", ""))
+            else:
+                text_parts.append(str(part))
+        raw = "".join(text_parts)
+    else:
+        raw = str(response.content)
 
-    # Strip markdown fences if the model wrapped the JSON anyway
+    raw = raw.strip()
+
+    # Strip markdown fences if the model wrapped the JSON
     if raw.startswith("```"):
         lines = raw.splitlines()
-        raw = "\n".join(lines[1:-1]) if lines[-1] == "```" else "\n".join(lines[1:])
+        raw = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+        raw = raw.strip()
 
-    return {**state, "raw_llm_output": raw, "model_used": GEMINI_MODEL}
+    active_model = os.environ.get("GEMINI_MODEL", GEMINI_MODEL)
+    return {**state, "raw_llm_output": raw, "model_used": active_model}
 
 
 def validate_node(state: PipelineState) -> PipelineState:
