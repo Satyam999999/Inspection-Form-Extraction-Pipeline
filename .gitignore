@@ -1,0 +1,30 @@
+# Environment and IDE
+.env
+.venv/
+.benchmarks/
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Generated data (large, not needed in repo)
+forms/images/
+forms/ground_truth/
+eval/predictions/
+
+# Keep the report
+!eval/report.md
+
+# Docker
+.dockerignore
+
